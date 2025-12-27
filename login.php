@@ -7,29 +7,37 @@ requireGuest();
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $password = $_POST['password'] ?? '';
-    
-    if (empty($username) || empty($password)) {
-        $error = 'Username and password are required';
+    // Verify CSRF token
+    if (!verifyRequestCsrf()) {
+        $error = 'Invalid request. Please try again.';
     } else {
-        $result = loginUser($username, $password);
-        if ($result['success']) {
-            // Get user's primary role and redirect accordingly
-            $user = getCurrentUser();
-            $primaryRole = $user['primary_role'] ?? 'freelancer';
-            
-            if ($primaryRole === 'client') {
-                header('Location: ' . SITE_URL . '/client_dashboard.php');
-            } else {
-                header('Location: ' . SITE_URL . '/freelancer_dashboard.php');
-            }
-            exit;
+        $username = trim($_POST['username'] ?? '');
+        $password = $_POST['password'] ?? '';
+        
+        if (empty($username) || empty($password)) {
+            $error = 'Username and password are required';
         } else {
-            $error = $result['error'];
+            $result = loginUser($username, $password);
+            if ($result['success']) {
+                // Get user's primary role and redirect accordingly
+                $user = getCurrentUser();
+                $primaryRole = $user['primary_role'] ?? 'freelancer';
+                
+                if ($primaryRole === 'client') {
+                    header('Location: ' . SITE_URL . '/client_dashboard.php');
+                } else {
+                    header('Location: ' . SITE_URL . '/freelancer_dashboard.php');
+                }
+                exit;
+            } else {
+                $error = $result['error'];
+            }
         }
     }
 }
+
+// Initialize CSRF token if not exists
+initializeCsrfToken();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -61,6 +69,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST" class="auth-form">
+                <?php echo generateCsrfField(); ?>
+                
                 <div class="form-group">
                     <label for="username">Username</label>
                     <input type="text" id="username" name="username" placeholder="Enter your username" required value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">

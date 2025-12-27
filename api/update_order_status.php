@@ -6,10 +6,18 @@ requireLogin();
 
 header('Content-Type: application/json');
 
+// Verify CSRF token
+if (!verifyRequestCsrf()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Invalid request']);
+    exit;
+}
+
 $orderId = intval($_POST['order_id'] ?? 0);
 $status = trim($_POST['status'] ?? '');
 
 if ($orderId <= 0 || empty($status)) {
+    http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid input']);
     exit;
 }
@@ -17,6 +25,7 @@ if ($orderId <= 0 || empty($status)) {
 // Validate status
 $validStatuses = ['pending', 'in_progress', 'completed', 'cancelled'];
 if (!in_array($status, $validStatuses)) {
+    http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid status']);
     exit;
 }
@@ -32,12 +41,14 @@ try {
     $result = $checkStmt->get_result();
     
     if ($result->num_rows === 0) {
+        http_response_code(404);
         echo json_encode(['success' => false, 'message' => 'Order not found']);
         exit;
     }
     
     $row = $result->fetch_assoc();
-    if ($row['freelancer_id'] !== $userId) {
+    if ((int)$row['freelancer_id'] !== $userId) {
+        http_response_code(403);
         echo json_encode(['success' => false, 'message' => 'Unauthorized']);
         exit;
     }
@@ -50,9 +61,12 @@ try {
     if ($updateStmt->execute()) {
         echo json_encode(['success' => true, 'message' => 'Order status updated']);
     } else {
+        http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Error updating order']);
     }
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    logException($e);
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Server error']);
 }
 ?>

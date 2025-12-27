@@ -8,39 +8,47 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $confirmPassword = $_POST['confirm_password'] ?? '';
-    $firstName = trim($_POST['first_name'] ?? '');
-    $lastName = trim($_POST['last_name'] ?? '');
-    $primaryRole = trim($_POST['primary_role'] ?? 'freelancer');
-    
-    // Validation
-    if (empty($username)) {
-        $error = 'Username is required';
-    } elseif (empty($email)) {
-        $error = 'Email is required';
-    } elseif (empty($password)) {
-        $error = 'Password is required';
-    } elseif (strlen($password) < 8) {
-        $error = 'Password must be at least 8 characters';
-    } elseif ($password !== $confirmPassword) {
-        $error = 'Passwords do not match';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Invalid email format';
-    } elseif (!in_array($primaryRole, ['client', 'freelancer'])) {
-        $error = 'Please select a valid role';
+    // Verify CSRF token
+    if (!verifyRequestCsrf()) {
+        $error = 'Invalid request. Please try again.';
     } else {
-        $result = registerUser($username, $email, $password, $firstName, $lastName, $primaryRole);
-        if ($result['success']) {
-            $success = 'Registration successful! Redirecting to login...';
-            header('Refresh: 2; url=' . SITE_URL . '/login.php');
+        $username = trim($_POST['username'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+        $confirmPassword = $_POST['confirm_password'] ?? '';
+        $firstName = trim($_POST['first_name'] ?? '');
+        $lastName = trim($_POST['last_name'] ?? '');
+        $primaryRole = trim($_POST['primary_role'] ?? 'freelancer');
+        
+        // Validation
+        if (empty($username)) {
+            $error = 'Username is required';
+        } elseif (empty($email)) {
+            $error = 'Email is required';
+        } elseif (empty($password)) {
+            $error = 'Password is required';
+        } elseif (strlen($password) < 8) {
+            $error = 'Password must be at least 8 characters';
+        } elseif ($password !== $confirmPassword) {
+            $error = 'Passwords do not match';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Invalid email format';
+        } elseif (!in_array($primaryRole, ['client', 'freelancer'])) {
+            $error = 'Please select a valid role';
         } else {
-            $error = $result['error'];
+            $result = registerUser($username, $email, $password, $firstName, $lastName, $primaryRole);
+            if ($result['success']) {
+                $success = 'Registration successful! Redirecting to login...';
+                header('Refresh: 2; url=' . SITE_URL . '/login.php');
+            } else {
+                $error = $result['error'];
+            }
         }
     }
 }
+
+// Initialize CSRF token if not exists
+initializeCsrfToken();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -76,6 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST" class="auth-form">
+                <?php echo generateCsrfField(); ?>
+                
                 <div class="form-group">
                     <label>Select Your Primary Role</label>
                     <div class="role-options">
